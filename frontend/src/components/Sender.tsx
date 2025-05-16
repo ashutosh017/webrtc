@@ -1,49 +1,26 @@
 import { useEffect, useState } from "react";
 
-export const Sender = () => {
+export function Sender() {
   const [socket, setSocket] = useState<WebSocket | null>(null);
-  const [pcObj, setpcObj] = useState<RTCPeerConnection | null>(null);
+
   useEffect(() => {
-    const ws = new WebSocket("ws://localhost:8080");
-    setSocket(ws);
-    ws.onopen = () => {
-      ws.send(
+    const socket = new WebSocket("ws://localhost:8080/");
+    socket.onopen = () => {
+      socket.send(
         JSON.stringify({
           type: "sender",
         })
       );
     };
+    setSocket(socket);
   }, []);
 
-  const initConnection = async () => {
-    if (!socket) {
-      console.log("no socket found");
-      return;
-    }
-    socket.onmessage = (event) => {
-      const parsedMessage = JSON.parse(event.data);
-      if (parsedMessage.type === "createAnswer") {
-        pcObj?.setRemoteDescription(parsedMessage.sdp);
-      }
-      if (parsedMessage.type === "iceCandidate") {
-        pcObj?.addIceCandidate(parsedMessage.candidate);
-      }
-    };
+  async function startSendingVideo() {
+    if (!socket) return;
     const pc = new RTCPeerConnection();
-    setpcObj(pc);
-    pc.onicecandidate = (event) => {
-      if (event.candidate) {
-        socket?.send(
-          JSON.stringify({
-            type: "iceCandidate",
-            candidate: event.candidate,
-          })
-        );
-      }
-    };
     pc.onnegotiationneeded = async () => {
       const offer = await pc.createOffer();
-      pc.setLocalDescription(offer);
+      await pc.setLocalDescription(offer);
       socket?.send(
         JSON.stringify({
           type: "createOffer",
@@ -51,28 +28,41 @@ export const Sender = () => {
         })
       );
     };
-    getCameraStreamAndSend(pcObj!);
-  };
-
-  const getCameraStreamAndSend = async (pc: RTCPeerConnection) => {
-    const stream = await navigator.mediaDevices.getUserMedia({ video: true });
-    const video = document.createElement("video");
-    video.srcObject = stream;
-    video.play();
-    document.body.append(video);
-    stream.getTracks().forEach((track) => {
-      pc?.addTrack(track);
+    pc.onicecandidate = (event) => {
+      if (event.candidate) {
+        socket.send(
+          JSON.stringify({
+            type: "iceCandidate",
+            candidate: event.candidate,
+          })
+        );
+      }
+    };
+    socket.onmessage = (event) => {
+      const data = JSON.parse(event.data);
+      if (data.type === "createAnswer") {
+        console.log(data)
+        pc.setRemoteDescription(data.sdp);
+      } else if (data.type === "iceCandidate") {
+        pc.addIceCandidate(data.candidate);
+      }
+    };
+    const stream = await navigator.mediaDevices.getUserMedia({
+      video: true,
+      audio: false,
     });
-  };
+    pc.addTrack(stream.getVideoTracks()[0]);
 
-  const handleClick = () => {
-    initConnection();
-  };
+    const video = document.createElement('video')
+    document.body.appendChild(video)
+    video.srcObject = stream
+    video.play()
+  }
 
   return (
     <div>
-      <button onClick={handleClick}>Send</button>
-      sender
+      Sender
+      <button onClick={startSendingVideo}>Send Video</button>
     </div>
   );
-};
+}
