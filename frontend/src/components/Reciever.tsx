@@ -1,7 +1,7 @@
 import { useEffect } from "react";
-// import {useRef} from 'react'
+
 export function Reciever() {
-  // const videoRef = useRef<HTMLVideoElement | null>(null);
+
 
   useEffect(() => {
     const socket = new WebSocket("ws://localhost:8080");
@@ -43,17 +43,14 @@ export function Reciever() {
           }
           console.log("ice candidate sent")
         };
+        const video = document.createElement('video')
+        document.body.appendChild(video)
 
         pc.ontrack = (event) => {
 
           console.log("pc on track ")
           console.log('pc ontrack: ',event)
-          // if(videoRef.current){
-          //   videoRef.current.srcObject = new MediaStream([event.track])
-          //   videoRef.current.play()
-          // }
-          const video = document.createElement('video')
-          document.body.appendChild(video)
+       
           video.srcObject = new MediaStream([event.track])
           video.play()
         };
